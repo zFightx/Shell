@@ -1,0 +1,1 @@
+PATH=/bin/ps;/bin/rm;/bin/mv;/bin/cp;/bin/ls;/bin/grep;/bin/wc;/bin/echo;/bin/cat;/bin/find;/bin/sleep;/bin/chmod;/bin/chown;/bin/chgrp;/bin/touch;/bin/awk;/bin/sed;/bin/cut;/bin/sort;/bin/uniq;/bin/gzip;/bin/gunzip;/bin/bzip2;/bin/bunzip2;/bin/tar;
