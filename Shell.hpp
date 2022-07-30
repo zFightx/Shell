@@ -13,15 +13,20 @@ class Shell
         vector<string> paths_profile;
         map<string, string> aliases;
         vector<string> history;
+        vector<int> manager_pids;
         string USER;
 
     public:
-        Shell(string file_profiles, string file_aliases);
+        Shell();
         void MainLoop();
+        void ExecuteLote(string file);
         void ExecuteCommand(string command, vector<string> args);
+        void ExecutePipe(string command, vector<string> args);
         string GetOriginalCommand(string alias);
         void ShowHistory();
+        void ShowVersion();
         void PrepareCommand(string line_command);
+        void ManagerPids();
 
         ~Shell();
 };

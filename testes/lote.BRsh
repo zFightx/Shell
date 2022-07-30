@@ -1,0 +1,24 @@
+#! /usr/bin/BRsh
+processos -elf > texto.txt
+conta -l < texto.txt
+acha / | filtra ime > /dev/null &
+dorme 100&
+pwd
+criadir meu_dir
+muda meu_dir
+move ../texto.txt ../meu_dir/.
+historico
+historico 5
+#nova bateria de comandos
+muda ..
+criadir tmp
+lista -a > ./tmp/saida.txt
+muda tmp
+mostra saida.txt ../meu_dir/texto.txt | conta -l
+uname -a
+# aqui neste ponto compila um programa c qualquer (exemplo.c) que imprime “Alo UnB. Feliz 2022!”.
+gcc -o exemplo exemplo.c
+criadir bin
+muda exemplo ./bin/.
+exemplo
+#fim do arquivo em lote

@@ -1,4 +1,4 @@
-alias "cd" "mudar"
+alias "cd" "muda"
 alias "ps" "processos"
 alias "rm" "remove"
 alias "mkdir" "criadir"

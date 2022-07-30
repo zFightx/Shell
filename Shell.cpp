@@ -3,16 +3,17 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "Shell.hpp"
 #include "Util.hpp"
 
-Shell::Shell(string file_profiles, string file_aliases)
+Shell::Shell()
 {
-    vector<string> lines_profile = Util::ReadFile(file_profiles);
-    vector<string> lines_alias = Util::ReadFile(file_aliases);
-
     this->USER = getenv("USER");
+
+    vector<string> lines_profile = Util::ReadFile("/home/" + this->USER + "/.BRbshrc_profile");
+    vector<string> lines_alias = Util::ReadFile("/home/" + this->USER + "/.BRshrc");
 
     // Leitura do Profile
     for (unsigned int i = 0; i < lines_profile.size(); i++)
@@ -27,11 +28,6 @@ Shell::Shell(string file_profiles, string file_aliases)
                 if (path != "")
                     this->paths_profile.push_back(path);
             }
-
-            // for (unsigned i = 0; i < paths_profile.size(); i++)
-            // {
-            //     cout << paths_profile[i] << endl;
-            // }
         }
     }
 
@@ -51,12 +47,6 @@ Shell::Shell(string file_profiles, string file_aliases)
             this->aliases[string_alias] = original;
         }
     }
-
-    // cout << "INICIANDO ALIASES" << endl;
-    // for (pair<string,string> i : aliases)
-    // {
-    //     cout << i.first << " : " << i.second << endl;
-    // }
 }
 Shell::~Shell()
 {
@@ -74,11 +64,85 @@ void Shell::MainLoop()
 
         if (line_command != "" && line_command != "exit")
             PrepareCommand(line_command);
+        
+        this->ManagerPids();
     }
+}
+
+void Shell::ManagerPids()
+{
+    for (unsigned i = 0; i < this->manager_pids.size(); i++)
+    {
+        int ret = waitpid(this->manager_pids[i], NULL, WNOHANG);
+
+        if (ret == -1)
+        {
+            this->manager_pids.erase(this->manager_pids.begin() + i);
+            i = 0;
+        }
+    }
+}
+
+void Shell::ExecuteLote(string file_lote)
+{
+    vector<string> commands = Util::ReadFile(file_lote);
+
+    for (unsigned i = 0; i < commands.size(); i++)
+    {
+        if (commands[i][0] != '#')
+        {
+            this->PrepareCommand(commands[i]);
+        }
+
+        this->ManagerPids();
+    }
+
+    wait(NULL);
 }
 
 void Shell::ExecuteCommand(string command, vector<string> args)
 {
+    cout << "EXECUTANDO: =" << command << "=" << args.size() << endl;
+    for (unsigned i = 0; i < args.size(); i++)
+    {
+        if (args[i] == ">")
+        {
+            int file = open(args[i + 1].c_str(), O_WRONLY | O_CREAT | O_TRUNC);
+            dup2(file, 1);
+            close(file);
+
+            args.pop_back();
+            args.pop_back();
+        }
+        else if (args[i] == ">>")
+        {
+            int file = open(args[i + 1].c_str(), O_WRONLY | O_CREAT | O_APPEND);
+            dup2(file, 1);
+            close(file);
+
+            args.pop_back();
+            args.pop_back();
+        }
+        else if (args[i] == "<")
+        {
+            int file = open(args[i + 1].c_str(), O_RDONLY);
+
+            if (file != -1)
+            {
+                dup2(file, 0);
+                close(file);
+
+                args.pop_back();
+                args.pop_back();
+            }
+            else
+            {
+                cout << "Arquivo não encontrado." << endl;
+                return;
+            }
+        }
+    }
+
     // sleep(5);
     for (unsigned i = 0; i < this->paths_profile.size(); i++)
     {
@@ -104,7 +168,7 @@ void Shell::ExecuteCommand(string command, vector<string> args)
         }
     }
 
-    cout << "Nao achei o comando" << endl;
+    cout << "Nao achei o comando " << command << endl;
 }
 
 string Shell::GetOriginalCommand(string alias)
@@ -123,11 +187,118 @@ void Shell::ShowHistory()
     }
 }
 
+void Shell::ShowVersion()
+{
+    cout << "=========================================================" << endl;
+    cout << "| \tShell BRbsh \t\t\t\t\t|" << endl;
+    cout << "| \tAutor: Alexandre Souza Costa Oliveira \t\t|" << endl;
+    cout << "| \tVersão: 1.5.2 \t\t\t\t\t|" << endl;
+    cout << "| \tÚltima Atualização: 29/07/2022 \t\t\t|" << endl;
+    cout << "=========================================================" << endl;
+}
+
+void Shell::ExecutePipe(string command, vector<string> args)
+{
+    vector<vector<string>> all_args;
+    vector<string> all_commands;
+
+    int amount = 0;
+
+    all_commands.push_back(command);
+    all_args.push_back(vector<string>());
+
+    for (unsigned i = 0; i < args.size(); i++)
+    {
+        if (args[i] == "|")
+        {
+            amount++;
+            all_commands.push_back(this->GetOriginalCommand(args[i + 1]));
+            all_args.push_back(vector<string>());
+            i++;
+        }
+        else
+        {
+            all_args[amount].push_back(args[i]);
+        }
+    }
+
+    int fd[all_commands.size() - 1][2];
+    vector<int> pids = vector<int>(all_commands.size());
+
+    for (unsigned i = 0; i < all_commands.size() - 1; i++)
+    {
+        pipe(fd[i]);
+    }
+
+    if ((pids[0] = fork() == 0))
+    {
+        for (unsigned i = 1; i < all_commands.size() - 1; i++)
+        {
+            close(fd[i][0]);
+            close(fd[i][1]);
+        }
+
+        close(fd[0][0]);
+        dup2(fd[0][1], 1);
+
+        close(fd[0][1]);
+
+        ExecuteCommand(all_commands[0], all_args[0]);
+        exit(0);
+    }
+    for (unsigned i = 1; i < all_commands.size(); i++)
+    {
+        if ((pids[i] = fork() == 0))
+        {
+            for (unsigned j = 0; j < all_commands.size() - 1; j++)
+            {
+                if (i != j && j != i - 1)
+                {
+                    close(fd[j][0]);
+                    close(fd[j][1]);
+                }
+            }
+
+            close(fd[i - 1][1]);
+            dup2(fd[i - 1][0], 0);
+            close(fd[i - 1][0]);
+
+            if (i != all_commands.size() - 1)
+            {
+                close(fd[i][0]);
+                dup2(fd[i][1], 1);
+                close(fd[i][1]);
+            }
+
+            ExecuteCommand(all_commands[i], all_args[i]);
+            exit(0);
+        }
+    }
+
+    for (unsigned i = 0; i < all_commands.size() - 1; i++)
+    {
+        close(fd[i][0]);
+        close(fd[i][1]);
+    }
+
+    for (unsigned i = 0; i < all_commands.size(); i++)
+    {
+        waitpid(pids[i], NULL, 0);
+    }
+}
+
 void Shell::PrepareCommand(string line_command)
 {
     string command = "";
     string bkp_line_command = line_command;
     vector<string> args;
+    bool is_background = false;
+
+    if (line_command.find("&") == line_command.size() - 1)
+    {
+        line_command.resize(line_command.size() - 1);
+        is_background = true;
+    }
 
     // Separa comando de argumentos e busca na lista de alias
     if (line_command.find(" ") != string::npos)
@@ -161,6 +332,7 @@ void Shell::PrepareCommand(string line_command)
                 int num = stoi(args[0]);
                 if (num <= this->history.size() && num >= 1)
                 {
+                    cout << "BRsh-" << USER << "-" << get_current_dir_name() << ">" << this->history[num-1] << endl;
                     PrepareCommand(this->history[num - 1]);
                 }
                 else
@@ -171,6 +343,15 @@ void Shell::PrepareCommand(string line_command)
             else
                 ShowHistory();
         }
+        else if (command == "ver")
+        {
+            ShowVersion();
+        }
+        else if (command == "cd")
+        {
+            if (args.size() >= 1)
+                chdir(args[0].c_str());
+        }
         // Comandos que não são do próprio shell
         else
         {
@@ -180,113 +361,68 @@ void Shell::PrepareCommand(string line_command)
             if (this->history.size() > 10)
                 this->history.pop_back();
 
+            // Tratamento de PIPEs
             if (bkp_line_command.find(" | ") != string::npos)
             {
-                vector<vector<string>> all_args;
-                vector<string> all_commands;
-
-                int amount = 0;
-
-                all_commands.push_back(command);
-                all_args.push_back(vector<string>());
-
-                for (unsigned i = 0; i < args.size(); i++)
+                if (is_background)
                 {
-                    if (args[i] == "|")
+                    int background_pid = fork();
+
+                    if (background_pid == 0)
                     {
-                        amount++;
-                        all_commands.push_back(args[i + 1]);
-                        all_args.push_back(vector<string>());
-                        i++;
-                    }
-                    else
-                    {
-                        all_args[amount].push_back(args[i]);
-                    }
-                }
-
-                cout << "comandos: " << all_commands.size() << endl;
-                cout << "args: " << all_args.size() << endl;
-
-                int fd[all_commands.size() - 1][2];
-                vector<int> pids = vector<int>(all_commands.size());
-
-                for (unsigned i = 0; i < all_commands.size() - 1; i++)
-                {
-                    pipe(fd[i]);
-                }
-
-                if ((pids[0] = fork() == 0))
-                {
-                    for (unsigned i = 1; i < all_commands.size() - 1; i++)
-                    {
-                        close(fd[i][0]);
-                        close(fd[i][1]);
-                    }
-
-                    close(fd[0][0]);
-                    dup2(fd[0][1], 1);
-
-                    close(fd[0][1]);
-
-                    ExecuteCommand(all_commands[0], all_args[0]);
-                    exit(0);
-                }
-                for (unsigned i = 1; i < all_commands.size(); i++)
-                {
-                    if ((pids[i] = fork() == 0))
-                    {
-                        for (unsigned j = 0; j < all_commands.size() - 1; j++)
-                        {
-                            if (i != j && j != i - 1)
-                            {
-                                close(fd[j][0]);
-                                close(fd[j][1]);
-                            }
-                        }
-
-                        close(fd[i - 1][1]);
-                        dup2(fd[i - 1][0], 0);
-                        close(fd[i - 1][0]);
-
-                        if (i != all_commands.size() - 1)
-                        {
-                            close(fd[i][0]);
-                            dup2(fd[i][1], 1);
-                            close(fd[i][1]);
-                        }
-
-                        ExecuteCommand(all_commands[i], all_args[i]);
+                        this->ExecutePipe(command, args);
                         exit(0);
                     }
-                }
-
-                for (unsigned i = 0; i < all_commands.size()-1; i++)
-                {
-                    close(fd[i][0]);
-                    close(fd[i][1]);
-                }
-
-                for (unsigned i = 0; i < all_commands.size(); i++)
-                {
-                    waitpid(pids[i], NULL, 0);
-                }
-            }
-            else
-            {
-                // Cria um novo processo
-                int pid = fork();
-                if (pid == 0)
-                {
-                    ExecuteCommand(command, args);
-                    exit(0); // Encerra processo, caso não encontre o comando
+                    manager_pids.push_back(background_pid);
                 }
                 else
                 {
-                    cout << "AGUARDANDO " << pid << "..." << endl;
-                    // WNOHANG
-                    waitpid(pid, NULL, 0);
-                    cout << "Recuperou..." << endl;
+                    this->ExecutePipe(command, args);
+                }
+            }
+
+            // Tratamento de comandos únicos
+            else
+            {
+                if (is_background)
+                {
+                    int background_pid = fork();
+
+                    if (background_pid == 0)
+                    {
+                        // Cria um novo processo
+                        int pid = fork();
+                        if (pid == 0)
+                        {
+                            this->ExecuteCommand(command, args);
+                            exit(0); // Encerra processo, caso não encontre o comando
+                        }
+                        else
+                        {
+                            waitpid(pid, NULL, 0);
+                            cout << "Processo em background [" << pid << "][executado] " << bkp_line_command << endl;
+                            exit(0);
+                        }
+                    }
+
+                    manager_pids.push_back(background_pid);
+                }
+                else
+                {
+                    // Cria um novo processo
+                    int pid = fork();
+                    if (pid == 0)
+                    {
+                        this->ExecuteCommand(command, args);
+                        exit(0); // Encerra processo, caso não encontre o comando
+                    }
+                    else
+                    {
+                        // cout << "AGUARDANDO " << pid << "..." << endl;
+                        // WNOHANG
+                        waitpid(pid, NULL, 0);
+                        // cout << "Recuperou... " << endl;
+                    }
                 }
             }
         }
