@@ -1,1 +1,1 @@
-PATH=/usr/bin/mkdir;/usr/bin/gcc;/usr/bin/pwd;/usr/bin/uname;/usr/bin/ps;/usr/bin/rm;/usr/bin/mv;/usr/bin/cp;/usr/bin/ls;/usr/bin/grep;/usr/bin/wc;/usr/bin/echo;/usr/bin/cat;/usr/bin/find;/usr/bin/sleep;/usr/bin/chmod;/usr/bin/chown;/usr/bin/chgrp;/usr/bin/touch;/usr/bin/awk;/usr/bin/sed;/usr/bin/cut;/usr/bin/sort;/usr/bin/uniq;/usr/bin/gzip;/usr/bin/gunzip;/usr/bin/bzip2;/usr/bin/bunzip2;/usr/bin/tar;
+PATH=/usr/bin/;/bin/;

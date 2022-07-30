@@ -64,7 +64,7 @@ void Shell::MainLoop()
 
         if (line_command != "" && line_command != "exit")
             PrepareCommand(line_command);
-        
+
         this->ManagerPids();
     }
 }
@@ -102,7 +102,6 @@ void Shell::ExecuteLote(string file_lote)
 
 void Shell::ExecuteCommand(string command, vector<string> args)
 {
-    cout << "EXECUTANDO: =" << command << "=" << args.size() << endl;
     for (unsigned i = 0; i < args.size(); i++)
     {
         if (args[i] == ">")
@@ -146,29 +145,23 @@ void Shell::ExecuteCommand(string command, vector<string> args)
     // sleep(5);
     for (unsigned i = 0; i < this->paths_profile.size(); i++)
     {
-        int start = this->paths_profile[i].find("/" + command);
-        if (start != string::npos)
+        string path = this->paths_profile[i] + command;
+        char *args_formated[args.size() + 2];
+        args_formated[0] = const_cast<char *>(path.c_str());
+
+        for (unsigned j = 0; j < args.size(); j++)
         {
-            if (this->paths_profile[i].size() - start == command.size() + 1)
-            {
-                char *args_formated[args.size() + 2];
-                args_formated[0] = const_cast<char *>(this->paths_profile[i].c_str());
-
-                for (unsigned j = 0; j < args.size(); j++)
-                {
-                    args_formated[j + 1] = const_cast<char *>(args[j].c_str());
-                }
-
-                args_formated[args.size() + 1] = NULL;
-
-                execv(this->paths_profile[i].c_str(), args_formated);
-                cout << "Nao consegui executar o comando [" << command << "]" << endl;
-                cout << "Path=" << this->paths_profile[i] << endl;
-            }
+            args_formated[j + 1] = const_cast<char *>(args[j].c_str());
         }
+
+        args_formated[args.size() + 1] = NULL;
+        
+        execv(path.c_str(), args_formated);
+        // cout << "Nao consegui executar o comando [" << command << "]" << endl;
+        // cout << "Path=" << this->paths_profile[i] << endl;
     }
 
-    cout << "Nao achei o comando " << command << endl;
+    cout << "Nao achei o comando: " << command << endl;
 }
 
 string Shell::GetOriginalCommand(string alias)
@@ -332,7 +325,7 @@ void Shell::PrepareCommand(string line_command)
                 int num = stoi(args[0]);
                 if (num <= this->history.size() && num >= 1)
                 {
-                    cout << "BRsh-" << USER << "-" << get_current_dir_name() << ">" << this->history[num-1] << endl;
+                    cout << "BRsh-" << USER << "-" << get_current_dir_name() << ">" << this->history[num - 1] << endl;
                     PrepareCommand(this->history[num - 1]);
                 }
                 else

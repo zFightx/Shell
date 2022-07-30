@@ -17,7 +17,9 @@ int main(int argc, char *argv[])
         shell->ExecuteLote(file_lote);
     else
         shell->MainLoop();
+
     
+    delete shell;    
 
     return 0;
 }
