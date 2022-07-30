@@ -155,7 +155,7 @@ void Shell::ExecuteCommand(string command, vector<string> args)
         }
 
         args_formated[args.size() + 1] = NULL;
-        
+
         execv(path.c_str(), args_formated);
         // cout << "Nao consegui executar o comando [" << command << "]" << endl;
         // cout << "Path=" << this->paths_profile[i] << endl;
@@ -183,7 +183,7 @@ void Shell::ShowHistory()
 void Shell::ShowVersion()
 {
     cout << "=========================================================" << endl;
-    cout << "| \tShell BRbsh \t\t\t\t\t|" << endl;
+    cout << "| \tShell BRsh \t\t\t\t\t|" << endl;
     cout << "| \tAutor: Alexandre Souza Costa Oliveira \t\t|" << endl;
     cout << "| \tVersão: 1.5.2 \t\t\t\t\t|" << endl;
     cout << "| \tÚltima Atualização: 29/07/2022 \t\t\t|" << endl;
