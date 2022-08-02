@@ -1,8 +1,0 @@
-F S UID        PID  PPID  C PRI  NI ADDR SZ WCHAN  STIME TTY          TIME CMD
-4 S root         1     0  0  80   0 -   436 -      21:09 ?        00:00:00 /init
-5 S root         7     1  0  80   0 -   438 -      21:09 ?        00:00:00 /init
-1 S root         8     7  0  80   0 -   438 -      21:09 ?        00:00:00 /init
-4 S zfightx      9     8  0  80   0 -  2543 do_wai 21:09 pts/0    00:00:00 -bash
-0 S zfightx     99     9  0  80   0 -  1487 do_wai 21:11 pts/0    00:00:00 /usr/bin/BRsh
-0 S zfightx    112    99  0  80   0 -  1487 do_wai 21:12 pts/0    00:00:00 /usr/bin/BRsh ./lote.BRsh
-0 R zfightx    113   112  0  80   0 -  2654 -      21:12 pts/0    00:00:00 /usr/bin/ps -elf
