@@ -1,0 +1,5 @@
+.
+..
+lote.BRsh
+meu_dir
+tmp

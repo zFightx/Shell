@@ -1,3 +1,8 @@
+# Alexandre Souza Costa Oliveira
+# 170098168
+#
+
+
 Coloque os arquivos .BRshrc_profile e .BRshrc na pasta home/{seu_usuario}.
 
 Compile usando o comando:

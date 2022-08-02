@@ -57,24 +57,30 @@ void Shell::MainLoop()
     // Main Loop
     string line_command = "";
 
+    // Enquanto não digitar exit
     while (line_command != "exit")
     {
         cout << "BRsh-" << USER << "-" << get_current_dir_name() << ">";
         getline(cin, line_command);
 
+        // Preparar e validar comando para execução
         if (line_command != "" && line_command != "exit")
             PrepareCommand(line_command);
 
+        // Gerenciador de Backgrounds
         this->ManagerPids();
     }
 }
 
 void Shell::ManagerPids()
 {
+    // Se filho morreu, pai é avisado a cada rodada de Main Loop
     for (unsigned i = 0; i < this->manager_pids.size(); i++)
     {
+        // Verifica se filho morreu, sem bloquear o pai (WHOHANG)
         int ret = waitpid(this->manager_pids[i], NULL, WNOHANG);
 
+        // Se filho morreu, remove do gerenciador
         if (ret == -1)
         {
             this->manager_pids.erase(this->manager_pids.begin() + i);
@@ -85,8 +91,10 @@ void Shell::ManagerPids()
 
 void Shell::ExecuteLote(string file_lote)
 {
+    // Lê o arquivo em lote
     vector<string> commands = Util::ReadFile(file_lote);
 
+    // Para cada linha que não for comentário, tenta executar o comando.
     for (unsigned i = 0; i < commands.size(); i++)
     {
         if (commands[i][0] != '#')
@@ -94,16 +102,20 @@ void Shell::ExecuteLote(string file_lote)
             this->PrepareCommand(commands[i]);
         }
 
+        // Como não há Main Loop, é necessário verificar backgrounds
         this->ManagerPids();
     }
 
+    // Somente encerra, se todos os filhos morrerem
     wait(NULL);
 }
 
 void Shell::ExecuteCommand(string command, vector<string> args)
 {
+    // Redirecionador
     for (unsigned i = 0; i < args.size(); i++)
     {
+        // Redireciona a saída do comando para o arquivo especificado no argumento
         if (args[i] == ">")
         {
             int file = open(args[i + 1].c_str(), O_WRONLY | O_CREAT | O_TRUNC);
@@ -113,6 +125,7 @@ void Shell::ExecuteCommand(string command, vector<string> args)
             args.pop_back();
             args.pop_back();
         }
+        // Flag append, concatena no final do arquivo
         else if (args[i] == ">>")
         {
             int file = open(args[i + 1].c_str(), O_WRONLY | O_CREAT | O_APPEND);
@@ -122,6 +135,7 @@ void Shell::ExecuteCommand(string command, vector<string> args)
             args.pop_back();
             args.pop_back();
         }
+        // Redireciona a leitura de dados do comando para o arquivo especificado
         else if (args[i] == "<")
         {
             int file = open(args[i + 1].c_str(), O_RDONLY);
@@ -142,30 +156,36 @@ void Shell::ExecuteCommand(string command, vector<string> args)
         }
     }
 
-    // sleep(5);
+    // Formata os argumentos do comando
+    char *args_formated[args.size() + 2];
+    args_formated[0] = const_cast<char*>("");
+    for (unsigned j = 0; j < args.size(); j++)
+    {
+        args_formated[j + 1] = const_cast<char *>(args[j].c_str());
+    }
+
+    args_formated[args.size() + 1] = NULL;
+
+    // Para cada path especificado no profile, tenta executar o comando
     for (unsigned i = 0; i < this->paths_profile.size(); i++)
     {
         string path = this->paths_profile[i] + command;
-        char *args_formated[args.size() + 2];
         args_formated[0] = const_cast<char *>(path.c_str());
 
-        for (unsigned j = 0; j < args.size(); j++)
-        {
-            args_formated[j + 1] = const_cast<char *>(args[j].c_str());
-        }
-
-        args_formated[args.size() + 1] = NULL;
-
         execv(path.c_str(), args_formated);
-        // cout << "Nao consegui executar o comando [" << command << "]" << endl;
-        // cout << "Path=" << this->paths_profile[i] << endl;
     }
 
+    // Caso não tenha conseguido executar o comando, tenta executar um arquivo
+    args_formated[0] = const_cast<char *>(command.c_str());
+    execv(command.c_str(), args_formated);
+    
+    // Caso não tenha conseguido executar um comando ou arquivo, avisa o usuário
     cout << "Nao achei o comando: " << command << endl;
 }
 
 string Shell::GetOriginalCommand(string alias)
 {
+    // Retorna o comando original a partir do apelido
     if (this->aliases.count(alias) > 0)
         return this->aliases[alias];
 
@@ -185,13 +205,14 @@ void Shell::ShowVersion()
     cout << "=========================================================" << endl;
     cout << "| \tShell BRsh \t\t\t\t\t|" << endl;
     cout << "| \tAutor: Alexandre Souza Costa Oliveira \t\t|" << endl;
-    cout << "| \tVersão: 1.5.2 \t\t\t\t\t|" << endl;
-    cout << "| \tÚltima Atualização: 29/07/2022 \t\t\t|" << endl;
+    cout << "| \tVersão: 1.8.2 \t\t\t\t\t|" << endl;
+    cout << "| \tÚltima Atualização: 31/07/2022 \t\t\t|" << endl;
     cout << "=========================================================" << endl;
 }
 
 void Shell::ExecutePipe(string command, vector<string> args)
 {
+    // vetor de comandos e vetor de argumento para cada comando
     vector<vector<string>> all_args;
     vector<string> all_commands;
 
@@ -200,6 +221,7 @@ void Shell::ExecutePipe(string command, vector<string> args)
     all_commands.push_back(command);
     all_args.push_back(vector<string>());
 
+    // Montagem do vetor de comandos e argumentos
     for (unsigned i = 0; i < args.size(); i++)
     {
         if (args[i] == "|")
@@ -215,6 +237,7 @@ void Shell::ExecutePipe(string command, vector<string> args)
         }
     }
 
+    // Fd's de cada pipe que será usado
     int fd[all_commands.size() - 1][2];
     vector<int> pids = vector<int>(all_commands.size());
 
@@ -223,26 +246,34 @@ void Shell::ExecutePipe(string command, vector<string> args)
         pipe(fd[i]);
     }
 
+    // Comando inicial do pipe
     if ((pids[0] = fork() == 0))
     {
+        // Fecha todos os fds que não será utilizado para esse processo
         for (unsigned i = 1; i < all_commands.size() - 1; i++)
         {
             close(fd[i][0]);
             close(fd[i][1]);
         }
 
+        // Fecha leitura, pois o primeiro não irá ler.
         close(fd[0][0]);
+        // Redireciona a escrita, para o fd[1]
         dup2(fd[0][1], 1);
-
+        // Fecha o FD de escrita para esse processo.
         close(fd[0][1]);
-
+        // Executa o comando.
         ExecuteCommand(all_commands[0], all_args[0]);
+        // Encerra o processo caso falhe na execução do comando.
         exit(0);
     }
+
+    // Para cada comando secundário
     for (unsigned i = 1; i < all_commands.size(); i++)
     {
         if ((pids[i] = fork() == 0))
         {
+            // Fecha os fds que não serão usados
             for (unsigned j = 0; j < all_commands.size() - 1; j++)
             {
                 if (i != j && j != i - 1)
@@ -252,10 +283,14 @@ void Shell::ExecutePipe(string command, vector<string> args)
                 }
             }
 
+            // fecha a conexão de escrita com o comando anterior
             close(fd[i - 1][1]);
+            // redireciona a leitura de dados do comando, com a saída do comando anterior
             dup2(fd[i - 1][0], 0);
+            // fecha o fd de leitura com o comando anterior
             close(fd[i - 1][0]);
 
+            // Se não for último comando, redireciona a saída pro próximo comando ler
             if (i != all_commands.size() - 1)
             {
                 close(fd[i][0]);
@@ -263,17 +298,20 @@ void Shell::ExecutePipe(string command, vector<string> args)
                 close(fd[i][1]);
             }
 
+            // Executa o comando
             ExecuteCommand(all_commands[i], all_args[i]);
             exit(0);
         }
     }
 
+    // Fecha todos os fds para o pai
     for (unsigned i = 0; i < all_commands.size() - 1; i++)
     {
         close(fd[i][0]);
         close(fd[i][1]);
     }
 
+    // Aguarda todos os comandos acabarem
     for (unsigned i = 0; i < all_commands.size(); i++)
     {
         waitpid(pids[i], NULL, 0);
